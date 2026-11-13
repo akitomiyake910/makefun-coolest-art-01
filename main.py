@@ -1,8 +1,12 @@
-"""make.fun coolest-art-01 entry v2: "The Moon Is a Kite".
+"""make.fun coolest-art-01 entry v3: "The Moon Is a Kite".
 
-A small child on a dark hill flies the full moon as a kite. Pure
-standard-library Python: the picture is drawn pixel by pixel into an
-RGB buffer and written out as a PNG (own minimal encoder).
+A small child on a dark hill flies the full moon as a kite, a pale dog
+watching beside her. Pure standard-library Python: the picture is drawn
+pixel by pixel into an RGB buffer and written out as a PNG (own minimal
+encoder).
+
+v3 vs v2: richer moon (more craters + soft maria), ukiyo-e red cloud bands,
+a pale dog companion, red bows on the kite string, boots, a shooting star.
 
 Deterministic: fixed seed, no clock, no network. Running the program
 twice writes byte-identical output.
@@ -124,9 +128,64 @@ for _ in range(10):
     span(sy + 2, sx, sx + 1, (255, 255, 255))
     span(sy + 3, sx, sx + 1, (255, 255, 255))
 
-# ---------------------------------------------------------------- the moon
+# ---------------------------------------------------------------- moon glow + clouds
 
 MCX, MCY, MR = 340, 310, 235
+
+def glow(cx, cy, r, inner, rgb, amax):
+    """Soft radial glow around the moon: blend rgb over the sky gradient.
+
+    Drawn before the moon itself; alpha fades from amax at radius `inner`
+    to 0 at radius r. Each row is split into segments so the falloff is
+    radial, not a hard vertical edge.
+    """
+    for dy in range(-r, r + 1):
+        yy = cy + dy
+        if yy < 0 or yy >= H:
+            continue
+        half = int(math.sqrt(max(0, r * r - dy * dy)))
+        if half <= 0:
+            continue
+        base = sky_row(yy)
+        segs = 48
+        for s in range(segs):
+            xa = cx - half + (2 * half * s) // segs
+            xb = cx - half + (2 * half * (s + 1)) // segs
+            xm = (xa + xb) // 2
+            d = math.sqrt((xm - cx) ** 2 + dy * dy)
+            if d <= inner:
+                a = amax
+            else:
+                a = amax * max(0.0, (r - d) / max(1, r - inner)) ** 2
+            if a > 0.01:
+                span_blend(yy, xa, xb, rgb, a, base)
+
+
+# (glow removed in v3 final: the segmented radial blend produced visible
+# ring artifacts around the moon; the clean v2 moon + craters read better)
+
+
+def cloud_band(x0, x1, ybase, rgb, dark, ph):
+    """One ukiyo-e style red cloud band: wavy top edge, darker underside."""
+    for x in range(x0, x1):
+        top = int(ybase + 10 * math.sin(x * 0.018 + ph) +
+                  5 * math.sin(x * 0.043 + ph * 2))
+        thick = int(24 + 7 * math.sin(x * 0.03 + ph))
+        span(top, x, x + 1, rgb)
+        for yy in range(top + 1, top + thick):
+            span(yy, x, x + 1, rgb)
+        span(top + thick, x, x + 1, dark)
+        span(top + thick + 1, x, x + 1, dark)
+
+
+CLOUD_RED = (198, 62, 50)
+CLOUD_DARK = (150, 42, 36)
+cloud_band(10, 330, 66, CLOUD_RED, CLOUD_DARK, 1.2)
+cloud_band(690, 1020, 88, CLOUD_RED, CLOUD_DARK, 4.0)
+cloud_band(830, 1020, 420, CLOUD_RED, CLOUD_DARK, 2.6)
+cloud_band(0, 130, 470, CLOUD_RED, CLOUD_DARK, 0.4)
+
+# ---------------------------------------------------------------- the moon
 
 # moon body
 for _dy in range(-MR, MR + 1):
@@ -153,10 +212,25 @@ CRATERS = [
     (356, 250, 8, (228, 212, 172)),
     (440, 330, 10, (224, 208, 168)),
     (276, 420, 12, (226, 210, 170)),
+    # v3: more surface life — small pits and soft dark maria patches
+    (340, 180, 9, (226, 210, 170)),
+    (240, 280, 7, (228, 212, 172)),
+    (470, 280, 9, (224, 208, 168)),
+    (330, 450, 11, (226, 210, 170)),
+    (410, 440, 7, (228, 212, 172)),
+    (290, 350, 6, (230, 214, 174)),
+    (460, 380, 6, (226, 210, 170)),
+    (220, 380, 8, (224, 208, 168)),
+    (380, 180, 6, (228, 212, 172)),
+    (310, 520, 8, (226, 210, 170)),
 ]
 for _cx, _cy, _cr, _cc in CRATERS:
     disc(_cx, _cy, _cr, _cc)
     disc(_cx - _cr // 3, _cy - _cr // 3, _cr // 2, (246, 234, 204))
+# soft maria: large faint darker patches, double-disc for a soft edge
+for _mx, _my, _mr in [(300, 320, 52), (410, 300, 44), (350, 430, 48)]:
+    disc(_mx, _my, _mr, (234, 216, 176))
+    disc(_mx, _my, int(_mr * 0.72), (230, 210, 168))
 
 # ---------------------------------------------------------------- kite string
 
@@ -232,6 +306,43 @@ for _i in range(30):
     _sy = FEET - 79 + int(_i * 0.35) + int(3 * math.sin(_i * 0.5))
     span(_sy, _sx - 3, _sx + 3, RED)
     span(_sy + 1, _sx - 3, _sx + 3, RED)
+
+# ---------------------------------------------------------------- v3: dog, bows, boots, shooting star
+
+# boots under the coat so the child stands on the hill
+span(FEET - 8, 688, 702, DARK)
+span(FEET - 8, 700, 714, DARK)
+span(FEET - 4, 686, 704, DARK)
+span(FEET - 4, 698, 716, DARK)
+
+# a small pale dog sits beside the child, looking up at the moon
+DOG_X = 806
+DOG_FEET = int(ridge_top(DOG_X, 860, HILL1))
+DOGC = (238, 230, 210)  # pale cream so it reads against the dark hill
+disc(DOG_X, DOG_FEET - 14, 18, DOGC)          # body
+disc(DOG_X + 9, DOG_FEET - 36, 10, DOGC)      # head
+disc(DOG_X + 3, DOG_FEET - 45, 5, (58, 40, 28))  # floppy ear
+disc(DOG_X + 18, DOG_FEET - 38, 3, (58, 40, 28))  # snout tip
+for _ti in range(7):                          # tail curling up
+    _tx = DOG_X - 17 - _ti * 2
+    _ty = DOG_FEET - 17 - _ti * 3
+    disc(_tx, _ty, 3, DOGC)
+span(DOG_FEET - 29, DOG_X - 1, DOG_X + 14, RED)  # red collar
+
+# little red bows fluttering along the kite string
+for _bt in (0.28, 0.55, 0.8):
+    _bx, _by = bez(HAND, CTRL, ANCHOR, _bt)
+    _bx, _by = int(_bx), int(_by)
+    for _dy in range(-4, 5):
+        _w = 4 - abs(_dy)
+        span(_by + _dy, _bx - _w, _bx + _w + 1, RED)
+    disc(_bx, _by, 2, (250, 214, 140))
+
+# a shooting star streaks across the top-right sky
+for _si in range(9):
+    _sx = 880 + _si * 11
+    _sy = 118 + _si * 9
+    disc(_sx, _sy, max(1, 4 - _si // 3), (255, 242, 205))
 
 # ---------------------------------------------------------------- fireflies
 
