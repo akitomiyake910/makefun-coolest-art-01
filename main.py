@@ -1,8 +1,8 @@
-"""make.fun coolest-art-01 entry: "The Last Flag on Kepler Ridge".
+"""make.fun coolest-art-01 entry v2: "The Moon Is a Kite".
 
-A lone astronaut plants a flag on an alien ridge under a giant ringed
-planet. Pure standard-library Python: the picture is drawn pixel by pixel
-into an RGB buffer and written out as a PNG (own minimal encoder).
+A small child on a dark hill flies the full moon as a kite. Pure
+standard-library Python: the picture is drawn pixel by pixel into an
+RGB buffer and written out as a PNG (own minimal encoder).
 
 Deterministic: fixed seed, no clock, no network. Running the program
 twice writes byte-identical output.
@@ -72,12 +72,11 @@ def lerp(a, b, t):
 # ---------------------------------------------------------------- sky
 
 SKY_STOPS = [
-    (0, (7, 9, 34)),
-    (240, (20, 20, 66)),
-    (430, (52, 32, 92)),
-    (560, (108, 48, 100)),
-    (640, (176, 72, 92)),
-    (700, (255, 138, 54)),
+    (0, (7, 11, 38)),
+    (320, (14, 22, 60)),
+    (620, (24, 33, 80)),
+    (820, (44, 50, 96)),
+    (1024, (20, 22, 48)),
 ]
 
 
@@ -91,157 +90,92 @@ def sky_row(y):
     return SKY_STOPS[-1][1]
 
 
-for _y in range(700):
+for _y in range(H):
     _c = sky_row(_y)
     img[_y][:] = _bytes(_c, W)
 
-# ground base below the horizon (ridges paint over it)
-for _y in range(700, H):
-    img[_y][:] = _bytes((18, 12, 30), W)
-
 # ---------------------------------------------------------------- stars
 
-rng = random.Random(1234)
-for _ in range(380):
+rng = random.Random(2026)
+for _ in range(260):
     sx = rng.randrange(0, W)
-    sy = rng.randrange(0, 660)
-    b = rng.randrange(130, 256)
-    s = 1 if rng.random() < 0.75 else 2
-    col = (b, b, min(255, b + 20))
+    sy = rng.randrange(0, 800)
+    b = rng.randrange(120, 256)
+    s = 1 if rng.random() < 0.8 else 2
+    col = (b, b, min(255, b + 18))
     if s == 1:
         span(sy, sx, sx + 1, col)
     else:
         span(sy, sx, sx + 2, col)
         span(sy + 1, sx, sx + 2, col)
-# a few bright sparkle stars
-for _ in range(12):
-    sx = rng.randrange(40, W - 40)
-    sy = rng.randrange(30, 480)
-    b = 255
-    span(sy, sx - 3, sx + 4, (b, b, b))
-    span(sy - 3, sx, sx + 1, (b, b, b))
-    span(sy + 1, sx, sx + 1, (b, b, b))
-    span(sy + 2, sx, sx + 1, (b, b, b))
-    span(sy + 3, sx, sx + 1, (b, b, b))
+# gold stars, brighter, clustered near the moon
+for _ in range(26):
+    sx = rng.randrange(60, 760)
+    sy = rng.randrange(40, 620)
+    span(sy, sx, sx + 2, (240, 200, 110))
+    span(sy + 1, sx, sx + 2, (240, 200, 110))
+# a few sparkle stars
+for _ in range(10):
+    sx = rng.randrange(50, W - 50)
+    sy = rng.randrange(40, 500)
+    span(sy, sx - 3, sx + 4, (255, 255, 255))
+    span(sy - 3, sx, sx + 1, (255, 255, 255))
+    span(sy + 1, sx, sx + 1, (255, 255, 255))
+    span(sy + 2, sx, sx + 1, (255, 255, 255))
+    span(sy + 3, sx, sx + 1, (255, 255, 255))
 
-# ---------------------------------------------------------------- small moon
+# ---------------------------------------------------------------- the moon
 
-MOON = (182, 148)
-disc(MOON[0], MOON[1], 52, (255, 176, 96), 0.10, sky_row(MOON[1]))
-disc(MOON[0], MOON[1], 40, (255, 176, 96), 0.14, sky_row(MOON[1]))
-disc(MOON[0], MOON[1], 30, (242, 236, 214))
-disc(MOON[0] - 9, MOON[1] - 7, 5, (214, 206, 184))
-disc(MOON[0] + 8, MOON[1] + 9, 4, (214, 206, 184))
-disc(MOON[0] + 11, MOON[1] - 11, 3, (222, 214, 192))
+MCX, MCY, MR = 340, 310, 235
 
-# ---------------------------------------------------------------- shooting star
-
-for _i in range(46):
-    _t = _i / 45.0
-    _x = int(856 - _t * 118)
-    _y = int(96 + _t * 84)
-    _b = int(255 * (1.0 - _t))
-    span(_y, _x, _x + 2, (_b, _b, min(255, _b + 30)))
-
-PCX, PCY, PR = 648, 296, 238
-
-# smooth radial glow: alpha falls off with true distance from the centre
-for _yy in range(max(0, PCY - PR - 200), min(700, PCY + PR + 201)):
-    _dy = _yy - PCY
-    _half = int(math.sqrt(max(0, (PR + 200) ** 2 - _dy * _dy)))
+# moon body
+for _dy in range(-MR, MR + 1):
+    _yy = MCY + _dy
+    if _yy < 0 or _yy >= H:
+        continue
+    _half = int(math.sqrt(max(0, MR * MR - _dy * _dy)))
     if _half <= 0:
         continue
-    _n = 40
-    for _s in range(_n):
-        _sx0 = PCX - _half + (2 * _half) * _s / _n
-        _sx1 = PCX - _half + (2 * _half) * (_s + 1) / _n
-        _cx = (_sx0 + _sx1) / 2.0
-        _d = math.sqrt(max(0, (_cx - PCX) ** 2 + _dy * _dy))
-        if _d <= PR:
-            continue
-        _al = 0.20 * max(0.0, 1.0 - (_d - PR) / 200.0) ** 1.5
-        span_blend(_yy, int(_sx0), int(_sx1) + 1, (255, 168, 92), _al,
-                   sky_row(_yy))
+    # gentle shading: brighter top-left, dimmer bottom-right
+    _t = ((_yy - (MCY - MR)) / (2.0 * MR))
+    _base = lerp((252, 240, 212), (238, 220, 180), _t)
+    span(_yy, MCX - _half, MCX + _half + 1, _base)
 
-# ---------------------------------------------------------------- ring, back half
+# craters (fixed, deterministic)
+CRATERS = [
+    (272, 232, 26, (224, 208, 168)),
+    (398, 268, 18, (224, 208, 168)),
+    (318, 372, 30, (222, 206, 166)),
+    (382, 392, 14, (226, 210, 170)),
+    (248, 332, 16, (224, 208, 168)),
+    (428, 214, 12, (228, 212, 172)),
+    (300, 296, 10, (230, 214, 174)),
+    (356, 250, 8, (228, 212, 172)),
+    (440, 330, 10, (224, 208, 168)),
+    (276, 420, 12, (226, 210, 170)),
+]
+for _cx, _cy, _cr, _cc in CRATERS:
+    disc(_cx, _cy, _cr, _cc)
+    disc(_cx - _cr // 3, _cy - _cr // 3, _cr // 2, (246, 234, 204))
 
-def ring_point(t, rr):
-    ct, st = math.cos(t), math.sin(t)
-    tilt = math.radians(-16)
-    x = PCX + rr * ct * math.cos(tilt) - 92 * st * math.sin(tilt)
-    y = PCY + rr * ct * math.sin(tilt) + 92 * st * math.cos(tilt)
+# ---------------------------------------------------------------- kite string
+
+def bez(p0, p1, p2, t):
+    x = (1 - t) ** 2 * p0[0] + 2 * (1 - t) * t * p1[0] + t * t * p2[0]
+    y = (1 - t) ** 2 * p0[1] + 2 * (1 - t) * t * p1[1] + t * t * p2[1]
     return x, y
 
 
-RING_COL = (236, 206, 150)
-for _rr in range(330, 432, 9):
-    _t = 0.0
-    while _t < 2 * math.pi:
-        _x, _y = ring_point(_t, _rr)
-        if _y < PCY - 6:
-            disc(int(_x), int(_y), 4, RING_COL, 0.9, sky_row(max(0, min(699, int(_y)))))
-        _t += 0.016
+HAND = (726, 748)
+ANCHOR = (491, 490)  # where the string meets the moon
+CTRL = (650, 600)
+STRING = (238, 192, 96)
+for _i in range(150):
+    _t = _i / 149.0
+    _x, _y = bez(HAND, CTRL, ANCHOR, _t)
+    disc(int(_x), int(_y), 2, STRING)
 
-# ---------------------------------------------------------------- planet
-
-BANDS = [
-    (0.00, (240, 216, 172)),
-    (0.12, (228, 188, 140)),
-    (0.26, (207, 150, 98)),
-    (0.40, (184, 118, 72)),
-    (0.55, (162, 94, 64)),
-    (0.70, (198, 142, 94)),
-    (0.84, (228, 188, 140)),
-    (1.01, (240, 216, 172)),
-]
-
-
-def band_col(v, y):
-    for i in range(len(BANDS) - 1):
-        if v < BANDS[i + 1][0]:
-            return BANDS[i][1]
-    return BANDS[-1][1]
-
-
-for _dy in range(-PR, PR + 1):
-    _yy = PCY + _dy
-    if _yy < 0 or _yy >= H:
-        continue
-    _half = int(math.sqrt(max(0, PR * PR - _dy * _dy)))
-    if _half <= 0:
-        continue
-    _v = (_yy - (PCY - PR)) / (2.0 * PR)
-    _base = band_col(_v, _yy)
-    _wob = 0.96 + 0.04 * math.sin(_yy * 0.31)
-    _base = tuple(min(255, int(c * _wob)) for c in _base)
-    # terminator: light from the right, 64 thin vertical slices
-    _x0 = PCX - _half
-    _x1 = PCX + _half
-    _n = 64
-    for _s in range(_n):
-        _sx0 = _x0 + (_x1 - _x0) * _s / _n
-        _sx1 = _x0 + (_x1 - _x0) * (_s + 1) / _n
-        _sc = (_sx0 + _sx1) / 2.0
-        _sn = (_sc - _x0) / max(1, _x1 - _x0)
-        _shade = 0.42 + 0.58 * (0.5 + 0.5 * math.sin((_sn - 0.12) * math.pi))
-        _shade = max(0.42, min(1.0, _shade))
-        _col = tuple(int(c * _shade) for c in _base)
-        # bright limb on the far right edge
-        if _sn > 0.94:
-            _col = lerp(_col, (255, 224, 176), 0.55)
-        span(_yy, int(_sx0), int(_sx1) + 1, _col)
-
-# ---------------------------------------------------------------- ring, front half
-
-for _rr in range(330, 432, 9):
-    _t = 0.0
-    while _t < 2 * math.pi:
-        _x, _y = ring_point(_t, _rr)
-        if _y >= PCY - 6:
-            disc(int(_x), int(_y), 4, RING_COL)
-        _t += 0.016
-
-# ---------------------------------------------------------------- ridges
+# ---------------------------------------------------------------- hills
 
 
 def ridge_top(x, base, comps):
@@ -260,60 +194,51 @@ def paint_ridge(base, comps, rgb):
             img[y][x * 3:x * 3 + 3] = col
 
 
-paint_ridge(706, [(26, 0.011, 1.7), (14, 0.023, 4.2), (7, 0.051, 9.1)],
-            (52, 34, 74))
-paint_ridge(748, [(34, 0.008, 3.9), (18, 0.019, 0.6), (9, 0.043, 5.5)],
-            (30, 19, 48))
+HILL1 = [(30, 0.007, 2.1), (14, 0.018, 5.0), (7, 0.040, 8.0)]
+paint_ridge(860, HILL1, (13, 17, 44))
+HILL2 = [(36, 0.006, 4.4), (18, 0.015, 1.2), (9, 0.037, 6.6)]
+paint_ridge(928, HILL2, (7, 9, 26))
 
-# warm sheen on the ground beneath the planet
-for _dy in range(0, 130):
-    _yy = 760 + _dy
-    if _yy >= H:
-        break
-    _al = 0.10 * (1.0 - _dy / 130.0)
-    _half = int(150 * (1.0 - _dy / 260.0)) + 40
-    span_blend(_yy, PCX - _half, PCX + _half, (255, 150, 70), _al, (30, 19, 48))
+# ---------------------------------------------------------------- the child
 
-paint_ridge(812, [(44, 0.006, 2.3), (22, 0.015, 5.0), (11, 0.037, 8.8)],
-            (15, 10, 28))
+FEET = int(ridge_top(700, 860, HILL1))
+FIG = (245, 238, 222)   # pale coat
+DARK = (34, 36, 62)
+RED = (214, 69, 65)     # red scarf, the one warm accent
+SKIN = (244, 214, 180)
+HAIR = (58, 40, 28)
+# legs (pale coat colour so they read against the night sky)
+span(FEET - 32, 690, 700, FIG)
+span(FEET - 32, 702, 712, FIG)
+# coat body
+for _y in range(FEET - 84, FEET - 30):
+    span(_y, 686, 716, FIG)
+# head: skin face with hair cap on top so the face still shows
+disc(700, FEET - 96, 14, SKIN)
+disc(700, FEET - 102, 12, HAIR)
+# raised arm, drawn after the head so it stays visible: diagonal up-right
+for _i in range(40):
+    _t = _i / 39.0
+    _x = int(710 + _t * 16)
+    _y = int(FEET - 76 - _t * 28)
+    span(_y, _x - 4, _x + 5, FIG)
+# hand gripping the string
+disc(726, 748, 5, FIG)
+# red scarf: band at the neck + fluttering tail to the left
+for _y in range(FEET - 84, FEET - 74):
+    span(_y, 684, 718, RED)
+for _i in range(30):
+    _sx = 684 - _i
+    _sy = FEET - 79 + int(_i * 0.35) + int(3 * math.sin(_i * 0.5))
+    span(_sy, _sx - 3, _sx + 3, RED)
+    span(_sy + 1, _sx - 3, _sx + 3, RED)
 
-# ---------------------------------------------------------------- astronaut
+# ---------------------------------------------------------------- fireflies
 
-AX = 400
-feet = int(ridge_top(AX, 812, [(44, 0.006, 2.3), (22, 0.015, 5.0),
-                                (11, 0.037, 8.8)]))
-FIG = (8, 7, 16)
-# long shadow to the right
-for _i in range(170):
-    _sx = AX + 12 + _i
-    _sy = feet + 1 + int(_i * 0.10)
-    if _sx < W and _sy < H:
-        span(_sy, _sx, _sx + 3, (6, 5, 12))
-        span(_sy + 1, _sx, _sx + 3, (6, 5, 12))
-# legs
-span(feet - 24, AX - 10, AX - 2, FIG)
-span(feet - 24, AX + 2, AX + 10, FIG)
-# torso
-for _y in range(feet - 64, feet - 22):
-    span(_y, AX - 14, AX + 16, FIG)
-# backpack
-for _y in range(feet - 60, feet - 28):
-    span(_y, AX + 16, AX + 26, FIG)
-# raised arm
-for _i in range(24):
-    span(feet - 60 + _i, AX + 16 + _i, AX + 22 + _i, FIG)
-# helmet
-disc(AX, feet - 76, 18, FIG)
-# glowing cyan visor
-disc(AX + 4, feet - 78, 6, (110, 240, 255))
-
-# flag pole and flag
-for _y in range(feet - 112, feet):
-    span(_y, AX + 58, AX + 62, (200, 200, 205))
-for _y in range(feet - 112, feet - 84):
-    _w = 40 - (_y - (feet - 112))
-    span(_y, AX + 62, AX + 62 + max(12, _w), (255, 122, 40))
-disc(AX + 60, feet - 114, 4, (255, 190, 90))
+for _fx, _fy in [(180, 900), (260, 940), (880, 900), (940, 950),
+                 (120, 960), (820, 970), (520, 990), (620, 920)]:
+    disc(_fx, _fy, 3, (250, 220, 120))
+    disc(_fx, _fy, 6, (250, 220, 120), 0.25, (7, 9, 26))
 
 # ---------------------------------------------------------------- PNG encode
 
